@@ -24,29 +24,29 @@ const assetUrl = (path: string): string => {
 export const assetMap: Record<string, string> = {
   // Backgrounds
   bg_title: assetUrl('assets/backgrounds/bg_title.jpg?v=4'),
-  bg_home: assetUrl('assets/backgrounds/bg_home.png'),
-  bg_school: assetUrl('assets/backgrounds/bg_school.png'),
-  bg_park: assetUrl('assets/backgrounds/bg_park.png'),
-  bg_company: assetUrl('assets/backgrounds/bg_company.png'),
-  bg_government: assetUrl('assets/backgrounds/bg_government.png'),
-  bg_mall: assetUrl('assets/backgrounds/bg_mall.png'),
-  bg_office: assetUrl('assets/backgrounds/bg_office.png'),
-  bg_logistics: assetUrl('assets/backgrounds/bg_logistics.png'),
-  bg_map: assetUrl('assets/backgrounds/bg_map.png'),
-  bg_map2: assetUrl('assets/backgrounds/bg_map2.png'),
-  bg_story: assetUrl('assets/backgrounds/bg_story.png'),
+  bg_home: assetUrl('assets/backgrounds/bg_home.jpg'),
+  bg_school: assetUrl('assets/backgrounds/bg_school.jpg'),
+  bg_park: assetUrl('assets/backgrounds/bg_park.jpg'),
+  bg_company: assetUrl('assets/backgrounds/bg_company.jpg'),
+  bg_government: assetUrl('assets/backgrounds/bg_government.jpg'),
+  bg_mall: assetUrl('assets/backgrounds/bg_mall.jpg'),
+  bg_office: assetUrl('assets/backgrounds/bg_office.jpg'),
+  bg_logistics: assetUrl('assets/backgrounds/bg_logistics.jpg'),
+  bg_map: assetUrl('assets/backgrounds/bg_map.jpg'),
+  bg_map2: assetUrl('assets/backgrounds/bg_map2.jpg'),
+  bg_story: assetUrl('assets/backgrounds/bg_story.jpg'),
   bg_company_entrance: assetUrl('assets/backgrounds/bg_company_entrance.png'),
   bg_company_testing: assetUrl('assets/backgrounds/bg_company_testing.png'),
   bg_terminal: assetUrl('assets/backgrounds/bg_terminal.png'),
   bg_month_start: assetUrl('assets/backgrounds/bg_month_start.png'),
 
   // AI full-body portraits
-  portrait_ai_male_normal: assetUrl('assets/portraits/portrait_ai_male_normal.png'),
+  portrait_ai_male_normal: assetUrl('assets/portraits/portrait_ai_male_normal.jpg'),
   portrait_ai_male_happy: assetUrl('assets/portraits/portrait_ai_male_happy.png'),
   portrait_ai_male_tired: assetUrl('assets/portraits/portrait_ai_male_tired.png'),
   portrait_ai_male_confused: assetUrl('assets/portraits/portrait_ai_male_confused.png'),
   portrait_ai_male_hurt: assetUrl('assets/portraits/portrait_ai_male_hurt.png'),
-  portrait_ai_female_normal: assetUrl('assets/portraits/portrait_ai_female_normal.png'),
+  portrait_ai_female_normal: assetUrl('assets/portraits/portrait_ai_female_normal.jpg'),
   portrait_ai_female_happy: assetUrl('assets/portraits/portrait_ai_female_happy.png'),
   portrait_ai_female_tired: assetUrl('assets/portraits/portrait_ai_female_tired.png'),
   portrait_ai_female_confused: assetUrl('assets/portraits/portrait_ai_female_confused.png'),
@@ -65,7 +65,7 @@ export const assetMap: Record<string, string> = {
   portrait_half_female_hurt: assetUrl('assets/portraits/portrait_half_female_hurt.png'),
 
   // Legacy aliases
-  portrait_ai_normal: assetUrl('assets/portraits/portrait_ai_male_normal.png'),
+  portrait_ai_normal: assetUrl('assets/portraits/portrait_ai_male_normal.jpg'),
   portrait_ai_happy: assetUrl('assets/portraits/portrait_ai_male_happy.png'),
   portrait_ai_tired: assetUrl('assets/portraits/portrait_ai_male_tired.png'),
   portrait_ai_confused: assetUrl('assets/portraits/portrait_ai_male_confused.png'),
@@ -86,9 +86,9 @@ export const assetMap: Record<string, string> = {
   icon_warn: assetUrl('assets/icons/icon_warn.png'),
 
   // UI assets
-  logo_jarvis_life: assetUrl('assets/brand/jarvis-life-logo-512.png?v=1'),
-  ui_avatar_ai_male: assetUrl('assets/ui/ui_avatar_ai_male.png'),
-  ui_avatar_ai_female: assetUrl('assets/ui/ui_avatar_ai_female.png'),
+  logo_jarvis_life: assetUrl('assets/brand/jarvis-life-logo-512.jpg?v=2'),
+  ui_avatar_ai_male: assetUrl('assets/ui/ui_avatar_ai_male.jpg'),
+  ui_avatar_ai_female: assetUrl('assets/ui/ui_avatar_ai_female.jpg'),
 
   // Stickers - female
   sticker_female_greeting: assetUrl('assets/stickers/sticker_female_greeting.png'),
