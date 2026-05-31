@@ -27,6 +27,8 @@ Icon?
 .stversions/
 .stfolder/
 .stignore
+*.sync-conflict-*
+*的冲突副本*
 
 # Editor / Tool temp
 .codex-tmp/
