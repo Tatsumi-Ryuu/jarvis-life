@@ -47,3 +47,6 @@ npm-debug.log*
 
 # Debug / Playground tools
 tools/agent-playground/
+
+# Agent config
+.agents/
