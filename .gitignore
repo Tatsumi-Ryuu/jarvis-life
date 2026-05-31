@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-electron/
+build/
+release/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Design screenshots / reference images
+images/
+
+# Docs (design documents, spreadsheets, etc.)
+docs/
+
+# System
+.DS_Store
+Icon
+Icon?
+
+# Syncthing
+.stversions/
+.stfolder/
+.stignore
+
+# Editor / Tool temp
+.codex-tmp/
+.codex/
+.gemini/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
