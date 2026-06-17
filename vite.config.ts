@@ -26,7 +26,6 @@ function builtinProviderPlugin(env: Record<string, string>): Plugin {
     configureServer(server) {
       const apiKey = env.BUILTIN_API_KEY;
       const provider = env.BUILTIN_PROVIDER || 'anthropic';
-      const modelId = env.BUILTIN_MODEL_ID || 'claude-sonnet-4-6';
       const displayName = env.BUILTIN_DISPLAY_NAME || '内置 AI';
       const modelDisplay = env.BUILTIN_MODEL_DISPLAY || '内置 AI';
 

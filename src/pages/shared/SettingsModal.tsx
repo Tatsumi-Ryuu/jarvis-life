@@ -190,7 +190,7 @@ const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ form, onFormChange, onSav
     setAddingProvider(false);
   };
 
-  const updateModelLevel = (level: string, provider: string, modelId: string) => {
+  const updateModelLevel = (level: import('../../types').ModelLevel, provider: string, modelId: string) => {
     const next = { ...form.models };
     const displayName = provider === 'builtin' ? builtinConfig?.displayModelName : undefined;
     next[level] = { provider, modelId, displayName };

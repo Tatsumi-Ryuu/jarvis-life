@@ -6,7 +6,6 @@ contextBridge.exposeInMainWorld('jarvis', {
   builtin: {
     getConfig: () => ipcRenderer.invoke('builtin:getConfig'),
   },
-  isElectron: true,
   save: {
     list: () => ipcRenderer.invoke('save:list'),
     load: (saveId: string) => ipcRenderer.invoke('save:load', saveId),
