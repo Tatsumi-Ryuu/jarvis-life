@@ -1,0 +1,86 @@
+name: Build & Release
+
+on:
+  # 手动触发：仅构建并上传 Artifact（在 Actions 页面下载），不发布 Release
+  workflow_dispatch:
+  # 推送 v 开头的 tag 时：构建并自动发布到 GitHub Releases
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # 发布 Release、上传资源需要
+
+# 同一 ref 的并发构建不互相取消，避免 Release 上传一半被砍
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            build_cmd: npx electron-builder --mac
+          - os: windows-latest
+            platform: win
+            build_cmd: npx electron-builder --win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer & electron main
+        run: npm run build
+
+      - name: Package app
+        run: ${{ matrix.build_cmd }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ---- 可选：macOS 代码签名 / 公证（见仓库说明）----
+          # CSC_LINK: ${{ secrets.CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p out
+          find release -maxdepth 1 -type f \( \
+            -name '*.dmg' -o -name '*.zip' -o -name '*.exe' \
+          \) -exec cp {} out/ \;
+          echo '::group::Packaged files'
+          ls -la out/
+          echo '::endgroup::'
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: JarvisLife-${{ matrix.platform }}
+          path: out/*
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: out/*
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

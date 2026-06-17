@@ -4,8 +4,12 @@ node_modules/
 # Build output
 dist/
 dist-electron/
-build/
 release/
+# build/ holds packaging source assets (icons). Ignore build outputs but keep icon sources.
+build/*
+!build/icon.png
+!build/icon.icns
+!build/icon.ico
 
 # Environment
 .env
