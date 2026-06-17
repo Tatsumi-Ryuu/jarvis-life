@@ -61,9 +61,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p out
+          # 只收集面向用户的安装包；跳过 *.blockmap（差分更新元数据）
+          # 和 latest*.yml（electron-updater 自动更新清单，本项目未使用）
           find release -maxdepth 1 -type f \( \
             -name '*.dmg' -o -name '*.zip' -o -name '*.exe' \
-          \) -exec cp {} out/ \;
+          \) ! -name '*.blockmap' -exec cp {} out/ \;
           echo '::group::Packaged files'
           ls -la out/
           echo '::endgroup::'
