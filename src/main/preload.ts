@@ -6,6 +6,14 @@ contextBridge.exposeInMainWorld('jarvis', {
   builtin: {
     getConfig: () => ipcRenderer.invoke('builtin:getConfig'),
   },
+  aiProxy: {
+    getConfig: () => ipcRenderer.invoke('aiProxy:getConfig'),
+  },
+  aiConfig: {
+    load: () => ipcRenderer.sendSync('aiConfig:load'),
+    save: (config: unknown) => ipcRenderer.sendSync('aiConfig:save', config),
+    clear: () => ipcRenderer.sendSync('aiConfig:clear'),
+  },
   save: {
     list: () => ipcRenderer.invoke('save:list'),
     load: (saveId: string) => ipcRenderer.invoke('save:load', saveId),

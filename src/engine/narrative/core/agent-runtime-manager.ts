@@ -289,7 +289,7 @@ export class AgentRuntimeManager {
       activeToolNames: policy.toolPolicy.allow,
       getApiKeyAndHeaders: async () => {
         const provider = this.runtimes.get(key)?.currentProvider ?? initialProvider;
-        return { apiKey: getApiKeyForModel(this.config!, provider) };
+        return { apiKey: await getApiKeyForModel(this.config!, provider) };
       },
       systemPrompt: () => this.buildSystemPrompt(role, gameState),
       thinkingLevel: 'off',

@@ -1,5 +1,9 @@
 import type { Model } from '@earendil-works/pi-ai';
 import type { ModelLevel, ModelSelection, NarrativeEngineConfig } from '../../../types';
+import {
+  getElectronAIProxyToken,
+  resolveElectronProviderBaseURL,
+} from '../../../services/electron-ai-proxy-service';
 
 export function resolveRuntimeBaseUrl(
   provider: string,
@@ -76,9 +80,12 @@ export async function buildModelsForConfig(
     // openai-compatible: build synthetic model from user-provided config
     if (selection.provider === 'openai-compatible') {
       const cred = config.providers['openai-compatible'];
-      const baseUrl = cred?.baseURL
+      let baseUrl = cred?.baseURL
         ? resolveRuntimeBaseUrl('openai-compatible', cred.baseURL)
         : '/api/custom';
+      if (cred?.baseURL && typeof window !== 'undefined' && window.jarvis?.isElectron) {
+        baseUrl = await resolveElectronProviderBaseURL('openai-compatible', cred.baseURL);
+      }
       models.set(level, {
         id: cred?.customModelId || selection.modelId || 'custom',
         name: cred?.customModelId || selection.modelId || 'Custom Model',
@@ -100,11 +107,17 @@ export async function buildModelsForConfig(
     }
 
     const cred = config.providers[selection.provider];
-    const baseUrl = resolveRuntimeBaseUrl(
+    let baseUrl = resolveRuntimeBaseUrl(
       selection.provider,
       baseModel.baseUrl,
       cred?.baseURL || undefined,
     );
+    if (typeof window !== 'undefined' && window.jarvis?.isElectron) {
+      baseUrl = await resolveElectronProviderBaseURL(
+        selection.provider,
+        cred?.baseURL || baseModel.baseUrl,
+      );
+    }
 
     models.set(level, { ...baseModel, baseUrl });
   }
@@ -112,10 +125,12 @@ export async function buildModelsForConfig(
   return models;
 }
 
-export function getApiKeyForModel(
+export async function getApiKeyForModel(
   config: NarrativeEngineConfig,
   provider: string,
-): string {
+): Promise<string> {
+  const proxyToken = await getElectronAIProxyToken();
+  if (proxyToken) return proxyToken;
   if (provider === 'builtin') {
     return config.providers['builtin']?.apiKey ?? 'builtin-proxy';
   }

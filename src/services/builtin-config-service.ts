@@ -6,7 +6,7 @@ const EMPTY_CONFIG: BuiltinProviderConfig = {
   modelId: '',
   displayName: '',
   displayModelName: '',
-  apiKey: '',
+  proxyToken: '',
   baseURL: '',
 };
 
@@ -29,7 +29,7 @@ export async function getBuiltinConfig(): Promise<BuiltinProviderConfig> {
         modelId: result.modelId,
         displayName: result.displayName || '内置 AI',
         displayModelName: result.displayModelName || '内置 AI',
-        apiKey: result.apiKey,
+        proxyToken: result.proxyToken,
         baseURL: result.baseURL,
       };
       return cachedConfig;
@@ -54,7 +54,7 @@ export async function getBuiltinConfig(): Promise<BuiltinProviderConfig> {
         modelId: '__proxy__',
         displayName: data.displayName || '内置 AI',
         displayModelName: data.displayModelName || '内置 AI',
-        apiKey: 'builtin-proxy',
+        proxyToken: 'builtin-proxy',
         baseURL: `${window.location.origin}/api/builtin`,
       };
       return cachedConfig;

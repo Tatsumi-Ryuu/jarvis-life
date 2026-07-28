@@ -34,9 +34,28 @@ declare global {
           modelId: string;
           displayName: string;
           displayModelName: string;
-          apiKey: string;
+          proxyToken: string;
           baseURL: string;
         }>;
+      };
+      aiProxy: {
+        getConfig: () => Promise<{ baseURL: string; token: string } | null>;
+      };
+      aiConfig: {
+        load: () => {
+          ok: boolean;
+          config?: unknown;
+          error?: string;
+        };
+        save: (config: unknown) => {
+          ok: boolean;
+          config?: unknown;
+          error?: string;
+        };
+        clear: () => {
+          ok: boolean;
+          error?: string;
+        };
       };
     };
   }

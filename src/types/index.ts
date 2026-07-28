@@ -595,7 +595,8 @@ export interface BuiltinProviderConfig {
   modelId: string;
   displayName: string;
   displayModelName: string;
-  apiKey: string;
+  /** Short-lived token accepted only by the loopback Electron/Vite proxy. */
+  proxyToken: string;
   baseURL: string;
 }
 

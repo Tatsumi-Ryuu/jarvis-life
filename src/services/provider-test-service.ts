@@ -1,4 +1,8 @@
 import type { ProviderCredential, ModelSelection } from '../types';
+import {
+  getElectronAIProxyToken,
+  resolveElectronProviderBaseURL,
+} from './electron-ai-proxy-service';
 
 export interface ProviderTestResult {
   ok: boolean;
@@ -33,7 +37,7 @@ export async function testProviderConnection(
           systemPrompt: 'You are a connectivity test. Reply with exactly: OK',
           messages: [],
           tools: [],
-        }, { apiKey: builtin.apiKey, maxTokens: 5, timeoutMs: 15_000 });
+        }, { apiKey: builtin.proxyToken, maxTokens: 5, timeoutMs: 15_000 });
         return { ok: true, latencyMs: Date.now() - start };
       }
 
@@ -55,7 +59,7 @@ export async function testProviderConnection(
         systemPrompt: 'You are a connectivity test. Reply with exactly: OK',
         messages: [],
         tools: [],
-      }, { apiKey: builtin.apiKey, maxTokens: 5, timeoutMs: 15_000 });
+      }, { apiKey: builtin.proxyToken, maxTokens: 5, timeoutMs: 15_000 });
       return { ok: true, latencyMs: Date.now() - start };
     }
 
@@ -68,6 +72,8 @@ export async function testProviderConnection(
           const url = new URL(baseUrl);
           baseUrl = `${window.location.origin}/api/custom${url.pathname}`;
         } catch { /* use as-is */ }
+      } else if (baseUrl && typeof window !== 'undefined' && window.jarvis?.isElectron) {
+        baseUrl = await resolveElectronProviderBaseURL('openai-compatible', baseUrl);
       }
       const model = {
         id: credential.customModelId || 'custom',
@@ -86,7 +92,11 @@ export async function testProviderConnection(
         systemPrompt: 'You are a connectivity test. Reply with exactly: OK',
         messages: [],
         tools: [],
-      }, { apiKey: credential.apiKey, maxTokens: 5, timeoutMs: 15_000 });
+      }, {
+        apiKey: (await getElectronAIProxyToken()) || credential.apiKey,
+        maxTokens: 5,
+        timeoutMs: 15_000,
+      });
       return { ok: true, latencyMs: Date.now() - start };
     }
 
@@ -107,6 +117,9 @@ export async function testProviderConnection(
         baseUrl = `${window.location.origin}/api/${selection.provider}${url.pathname}`;
       } catch { /* use registry default */ }
     }
+    if (typeof window !== 'undefined' && window.jarvis?.isElectron) {
+      baseUrl = await resolveElectronProviderBaseURL(selection.provider, baseUrl);
+    }
 
     const model = { ...baseModel, baseUrl };
 
@@ -119,7 +132,7 @@ export async function testProviderConnection(
         tools: [],
       },
       {
-        apiKey: credential.apiKey,
+        apiKey: (await getElectronAIProxyToken()) || credential.apiKey,
         maxTokens: 5,
         timeoutMs: 15_000,
       },

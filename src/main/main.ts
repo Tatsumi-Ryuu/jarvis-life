@@ -10,26 +10,21 @@ import {
   resolveMemoryFilePath,
   validateSaveId,
 } from './path-guards.js';
+import {
+  buildBuiltinProxyBaseURL,
+  clearEncryptedAIConfig,
+  getAIProxyInfo,
+  initializeAISecurity,
+  loadSanitizedAIConfig,
+  saveEncryptedAIConfig,
+  startAIProxy,
+  stopAIProxy,
+} from './ai-security.js';
 
 const SAVES_DIR = path.join(app.getPath('userData'), 'saves');
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TEXT_FILE_EXTENSIONS = new Set(['.json', '.md', '.txt']);
-
-const BUILTIN_PROXY_TARGETS: Record<string, string> = {
-  // Coding Plan
-  'zai': 'https://api.z.ai',
-  'minimax-cn': 'https://api.minimaxi.com',
-  'kimi-coding': 'https://api.kimi.com',
-  'xiaomi-token-plan-cn': 'https://token-plan-cn.xiaomimimo.com',
-  'opencode-go': 'https://opencode.ai',
-  // API
-  'anthropic': 'https://api.anthropic.com',
-  'openai': 'https://api.openai.com',
-  'deepseek': 'https://api.deepseek.com',
-  'openrouter': 'https://openrouter.ai',
-  'google': 'https://generativelanguage.googleapis.com',
-};
 
 function ensureSavesDir(): void {
   if (!fs.existsSync(SAVES_DIR)) {
@@ -237,22 +232,65 @@ function registerSaveIpc(): void {
 
 function registerBuiltinIpc(): void {
   ipcMain.handle('builtin:getConfig', async () => {
-    const apiKey = process.env.BUILTIN_API_KEY;
-    if (!apiKey) {
-      return { available: false, provider: '', modelId: '', displayName: '', displayModelName: '', apiKey: '', baseURL: '' };
+    const proxy = getAIProxyInfo();
+    if (!process.env.BUILTIN_API_KEY || !proxy) {
+      return {
+        available: false,
+        provider: '',
+        modelId: '',
+        displayName: '',
+        displayModelName: '',
+        proxyToken: '',
+        baseURL: '',
+      };
     }
     const provider = process.env.BUILTIN_PROVIDER || 'anthropic';
     const modelId = process.env.BUILTIN_MODEL_ID || 'claude-sonnet-4-6';
-    const baseURL = process.env.BUILTIN_BASE_URL || BUILTIN_PROXY_TARGETS[provider] || 'https://api.anthropic.com';
     return {
       available: true,
       provider,
       modelId,
       displayName: process.env.BUILTIN_DISPLAY_NAME || '内置 AI',
       displayModelName: process.env.BUILTIN_MODEL_DISPLAY || '内置 AI',
-      apiKey,
-      baseURL,
+      proxyToken: proxy.token,
+      baseURL: buildBuiltinProxyBaseURL(),
     };
+  });
+
+  ipcMain.handle('aiProxy:getConfig', async () => getAIProxyInfo());
+
+  ipcMain.on('aiConfig:load', (event) => {
+    try {
+      event.returnValue = { ok: true, config: loadSanitizedAIConfig() };
+    } catch (error) {
+      event.returnValue = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  ipcMain.on('aiConfig:save', (event, config: unknown) => {
+    try {
+      event.returnValue = { ok: true, config: saveEncryptedAIConfig(config) };
+    } catch (error) {
+      event.returnValue = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  ipcMain.on('aiConfig:clear', (event) => {
+    try {
+      clearEncryptedAIConfig();
+      event.returnValue = { ok: true };
+    } catch (error) {
+      event.returnValue = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   });
 }
 
@@ -448,6 +486,20 @@ function createWindow(): void {
   });
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL || (!app.isPackaged ? 'http://localhost:5173' : '');
+  const allowedDevOrigin = devServerUrl ? new URL(devServerUrl).origin : '';
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event, targetURL) => {
+    try {
+      const target = new URL(targetURL);
+      const allowed = allowedDevOrigin
+        ? target.origin === allowedDevOrigin
+        : target.protocol === 'file:';
+      if (!allowed) event.preventDefault();
+    } catch {
+      event.preventDefault();
+    }
+  });
 
   // Dev: load Vite dev server
   if (devServerUrl) {
@@ -462,10 +514,16 @@ function createWindow(): void {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  initializeAISecurity(app.getPath('userData'));
+  await startAIProxy();
   registerBuiltinIpc();
   registerSaveIpc();
   createWindow();
+});
+
+app.on('before-quit', () => {
+  void stopAIProxy();
 });
 
 app.on('window-all-closed', () => {

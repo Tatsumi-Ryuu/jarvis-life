@@ -5,7 +5,10 @@ import type { FontSize } from '../../store/settingsStore';
 import { useAudioStore } from '../../store/audioStore';
 import { sf } from '../../utils/font';
 import { assetMap } from '../../data/asset-map';
-import { DEFAULT_USER_AI_CONFIG } from '../../services/ai-config-service';
+import {
+  DEFAULT_USER_AI_CONFIG,
+  SECURE_CREDENTIAL_PLACEHOLDER,
+} from '../../services/ai-config-service';
 import { getBuiltinConfig, clearBuiltinConfigCache } from '../../services/builtin-config-service';
 import type { BuiltinProviderConfig } from '../../types';
 import { resetNarrativeEngine } from '../../engine/narrative/core/narrative-engine';
@@ -114,6 +117,10 @@ const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ form, onFormChange, onSav
   const initializedRef = useRef(false);
 
   const { PROVIDERS: providerList, getProviderInfo, getProvidersByCategory, fetchRemoteModels } = providerRegistry;
+  const credentialInputValue = (apiKey: string) =>
+    apiKey === SECURE_CREDENTIAL_PLACEHOLDER ? '' : apiKey;
+  const credentialPlaceholder = (apiKey: string) =>
+    apiKey === SECURE_CREDENTIAL_PLACEHOLDER ? '已安全保存；输入新 Key 可替换' : 'API Key';
 
   useEffect(() => {
     getBuiltinConfig().then((cfg) => {
@@ -254,7 +261,9 @@ const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ form, onFormChange, onSav
       <div style={{ padding: '16px 18px', background: 'var(--color-panel-soft)', border: '4px solid var(--color-border-soft)', boxShadow: '6px 6px 0 rgba(46, 126, 168, 0.24)' }}>
         <div style={{ fontSize: sf(17), fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 6 }}>AI 供应商</div>
         <div style={{ fontSize: sf(13), color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
-          配置至少一个 AI 供应商。API Key 只保存在本机浏览器中，不会上传到任何服务器。
+          {isElectron()
+            ? 'API Key 使用操作系统安全存储加密，并且模型请求由本机代理代发；页面无法读取真实 Key。'
+            : 'API Key 仅在当前页面会话的内存中使用，不会写入 localStorage；刷新页面后需要重新输入。'}
         </div>
       </div>
 
@@ -366,7 +375,8 @@ const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ form, onFormChange, onSav
                     onChange={(e) => updateProvider(name, { baseURL: e.target.value || undefined })} style={{ ...inputStyle, flex: 2 }} />
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-                  <input type="password" placeholder="API Key" value={form.providers[name].apiKey}
+                  <input type="password" placeholder={credentialPlaceholder(form.providers[name].apiKey)}
+                    value={credentialInputValue(form.providers[name].apiKey)}
                     onChange={(e) => updateProvider(name, { apiKey: e.target.value })} style={{ ...inputStyle, flex: 2 }} />
                   <input type="text" placeholder="模型 ID（如 gpt-4o）" value={form.providers[name].customModelId ?? ''}
                     onChange={(e) => updateProvider(name, { customModelId: e.target.value || undefined })} style={{ ...inputStyle, flex: 1 }} />
@@ -374,7 +384,8 @@ const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ form, onFormChange, onSav
               </>
             ) : (
               <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-                <input type="password" placeholder="API Key" value={form.providers[name].apiKey}
+                <input type="password" placeholder={credentialPlaceholder(form.providers[name].apiKey)}
+                  value={credentialInputValue(form.providers[name].apiKey)}
                   onChange={(e) => updateProvider(name, { apiKey: e.target.value })} style={{ ...inputStyle, flex: 2 }} />
                 <input type="text" placeholder="自定义 URL（可选）" value={form.providers[name].baseURL ?? ''}
                   onChange={(e) => updateProvider(name, { baseURL: e.target.value || undefined })} style={{ ...inputStyle, flex: 1 }} />

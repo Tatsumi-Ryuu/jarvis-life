@@ -36,7 +36,7 @@ async function resolveBuiltinConfig(config: NarrativeEngineConfig): Promise<Narr
     models: { ...config.models },
   };
 
-  next.providers['builtin'] = { apiKey: builtin.apiKey, baseURL: builtin.baseURL || undefined };
+  next.providers['builtin'] = { apiKey: builtin.proxyToken, baseURL: builtin.baseURL || undefined };
 
   for (const level of levels) {
     next.models[level] = {

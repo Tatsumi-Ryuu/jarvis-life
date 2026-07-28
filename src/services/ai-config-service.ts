@@ -15,6 +15,7 @@ export type AIConfigSaveResult =
   | { ok: false; error: string };
 
 export const AI_CONFIG_STORAGE_KEY = 'jarvis-settings-ai-config';
+export const SECURE_CREDENTIAL_PLACEHOLDER = '__JARVIS_SECURE_CREDENTIAL__';
 
 const DEFAULT_MODEL_SELECTION: ModelSelection = { provider: 'minimax-cn', modelId: 'MiniMax-M2.7' };
 
@@ -29,6 +30,30 @@ export const DEFAULT_USER_AI_CONFIG: UserAIConfig = {
 
 function getStorage(): Storage | null {
   return typeof localStorage !== 'undefined' ? localStorage : null;
+}
+
+let webSessionConfig: UserAIConfig | null = null;
+
+function hasElectronSecureStorage(): boolean {
+  return typeof window !== 'undefined'
+    && window.jarvis?.isElectron === true
+    && !!window.jarvis.aiConfig;
+}
+
+function withoutSecrets(config: UserAIConfig): UserAIConfig {
+  return {
+    providers: Object.fromEntries(
+      Object.entries(config.providers).map(([name, credential]) => [
+        name,
+        { ...credential, apiKey: '' },
+      ]),
+    ),
+    models: {
+      daily: { ...config.models.daily },
+      important: { ...config.models.important },
+      critical: { ...config.models.critical },
+    },
+  };
 }
 
 export function isAllowedAIBaseURL(baseURL: string): boolean {
@@ -114,12 +139,44 @@ function normalizeUserAIConfig(input: Record<string, unknown>): UserAIConfig {
 
 export function loadUserAIConfig(): UserAIConfig {
   const storage = getStorage();
+
+  if (hasElectronSecureStorage()) {
+    const result = window.jarvis!.aiConfig.load();
+    if (result.ok && result.config) {
+      storage?.removeItem(AI_CONFIG_STORAGE_KEY);
+      return normalizeUserAIConfig(result.config as Record<string, unknown>);
+    }
+
+    // One-time migration from the legacy plaintext localStorage entry.
+    const legacyRaw = storage?.getItem(AI_CONFIG_STORAGE_KEY);
+    if (legacyRaw) {
+      try {
+        const legacyConfig = normalizeUserAIConfig(JSON.parse(legacyRaw) as Record<string, unknown>);
+        const migration = window.jarvis!.aiConfig.save(legacyConfig);
+        if (migration.ok && migration.config) {
+          storage?.removeItem(AI_CONFIG_STORAGE_KEY);
+          return normalizeUserAIConfig(migration.config as Record<string, unknown>);
+        }
+      } catch {
+        // Leave the legacy entry untouched if secure migration fails.
+      }
+    }
+    return { ...DEFAULT_USER_AI_CONFIG, providers: {} };
+  }
+
+  if (webSessionConfig) return normalizeUserAIConfig(webSessionConfig as unknown as Record<string, unknown>);
   if (!storage) return { ...DEFAULT_USER_AI_CONFIG, providers: {} };
 
   try {
     const raw = storage.getItem(AI_CONFIG_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_USER_AI_CONFIG, providers: {} };
-    return normalizeUserAIConfig(JSON.parse(raw) as Record<string, unknown>);
+    const loaded = normalizeUserAIConfig(JSON.parse(raw) as Record<string, unknown>);
+    const hasLegacyPlaintextKey = Object.values(loaded.providers).some((credential) => credential.apiKey);
+    if (hasLegacyPlaintextKey) {
+      webSessionConfig = loaded;
+      storage.setItem(AI_CONFIG_STORAGE_KEY, JSON.stringify(withoutSecrets(loaded)));
+    }
+    return loaded;
   } catch {
     return { ...DEFAULT_USER_AI_CONFIG, providers: {} };
   }
@@ -159,14 +216,31 @@ export function saveUserAIConfig(input: Partial<UserAIConfig>): AIConfigSaveResu
   }
 
   const storage = getStorage();
+  if (hasElectronSecureStorage()) {
+    const result = window.jarvis!.aiConfig.save(next);
+    if (!result.ok || !result.config) {
+      return { ok: false, error: result.error || '系统安全存储写入失败。' };
+    }
+    storage?.removeItem(AI_CONFIG_STORAGE_KEY);
+    return {
+      ok: true,
+      config: normalizeUserAIConfig(result.config as Record<string, unknown>),
+    };
+  }
+
+  webSessionConfig = next;
   if (storage) {
-    storage.setItem(AI_CONFIG_STORAGE_KEY, JSON.stringify(next));
+    storage.setItem(AI_CONFIG_STORAGE_KEY, JSON.stringify(withoutSecrets(next)));
   }
 
   return { ok: true, config: next };
 }
 
 export function clearUserAIConfig(): UserAIConfig {
+  if (hasElectronSecureStorage()) {
+    window.jarvis!.aiConfig.clear();
+  }
+  webSessionConfig = null;
   getStorage()?.removeItem(AI_CONFIG_STORAGE_KEY);
   return { ...DEFAULT_USER_AI_CONFIG, providers: {} };
 }

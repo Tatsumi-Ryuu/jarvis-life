@@ -62,7 +62,15 @@ export async function fetchRemoteModels(
   if (!info || !info.canFetchModels) return [];
 
   let endpoint: string;
-  if (baseURL) {
+  let requestApiKey = apiKey;
+  const electronProxy = await getElectronAIProxyConfig();
+  if (electronProxy) {
+    const proxyBase = baseURL
+      ? await resolveElectronProviderBaseURL(providerId, baseURL)
+      : `${electronProxy.baseURL}/provider/${encodeURIComponent(providerId)}`;
+    endpoint = `${proxyBase.replace(/\/$/, '')}/models`;
+    requestApiKey = electronProxy.token;
+  } else if (baseURL) {
     const base = baseURL.endsWith('/') ? baseURL : baseURL + '/';
     endpoint = base + 'models';
   } else if (typeof window !== 'undefined' && !window.jarvis?.isElectron) {
@@ -75,11 +83,11 @@ export async function fetchRemoteModels(
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (providerId === 'openai-compatible') {
       if (!baseURL) return [];
-      headers['authorization'] = `Bearer ${apiKey}`;
+      headers['authorization'] = `Bearer ${requestApiKey}`;
     } else if (isAnthropicStyleAuth(providerId)) {
-      headers['x-api-key'] = apiKey;
+      headers['x-api-key'] = requestApiKey;
     } else {
-      headers['authorization'] = `Bearer ${apiKey}`;
+      headers['authorization'] = `Bearer ${requestApiKey}`;
     }
 
     const res = await fetch(endpoint, { headers, signal: AbortSignal.timeout(10_000) });
@@ -98,3 +106,7 @@ export async function fetchRemoteModels(
     return [];
   }
 }
+import {
+  getElectronAIProxyConfig,
+  resolveElectronProviderBaseURL,
+} from './electron-ai-proxy-service';
