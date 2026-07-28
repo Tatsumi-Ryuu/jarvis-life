@@ -49,9 +49,11 @@ src/
 
 ## 快速开始
 
+需要 Node.js 20.19 或更高版本。
+
 ```bash
 # 安装依赖
-npm install
+npm ci
 
 # 启动开发服务器（浏览器）
 npm run dev
@@ -63,7 +65,10 @@ npm run dev:electron
 npm test
 
 # 类型检查
-npx tsc --noEmit
+npm run typecheck
+
+# 代码检查
+npm run lint
 ```
 
 ## 构建发布
@@ -79,24 +84,25 @@ npm run build:electron
 npm run build:win:portable
 ```
 
-## 策划文档
+## AI 配置与安全
 
-游戏设计文档位于 `docs/游戏设计文档/`，推荐阅读顺序：
+- Electron 会用系统安全存储加密玩家自带的 Provider Key；renderer 只拿占位符和进程级代理令牌。
+- 浏览器模式仍由玩家本地配置直接调用所选供应商，不适合保存发行方共享密钥。
+- 浏览器开发模式的内置 AI 通过 Vite 本地代理转发。
+- Electron 的内置 AI 通过仅监听 `127.0.0.1` 的主进程代理转发，真实 `BUILTIN_API_KEY` 不会返回 renderer。
+- 不要把发行方长期密钥打进公开安装包；需要为玩家提供平台额度时，应接入带鉴权、限额和审计的远端代理。
 
-1. `00-游戏总览.md` — 核心参数速查
-2. `制作阶段/01-当前最小可玩版本范围.md` — 当前版本边界
-3. `共享规范/` — 状态存档、内容格式、组件规范
-4. `界面体验/09-完整界面流程与交互逻辑.md` — 全部界面规格
-5. `模块细案/01~08` — 各模块详细设计
+内部策划文档不随公开仓库分发。公开贡献请以源码、测试和本 README 为准。
 
 ## 质量门禁
 
 每次提交前须通过：
 
-1. `npx tsc --noEmit` — 零类型错误
-2. `npx vitest run` — 所有测试通过
-3. `npm run dev` — 浏览器中无 console 报错
+1. `npm run lint` — ESLint 无错误
+2. `npm run typecheck` — renderer、构建配置和 Electron 主进程零类型错误
+3. `npm test` — 所有测试通过
+4. `npm run build` — Web 与 Electron 主进程构建成功
 
 ## 许可证
 
-私有项目，未经授权不得分发。
+本仓库当前未附开源许可证，默认保留全部权利。复制、修改或分发前请联系维护者取得授权。

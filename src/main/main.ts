@@ -8,6 +8,7 @@ import {
   resolveAgentsRoot,
   resolveMemoriesDir,
   resolveMemoryFilePath,
+  resolveStoragePath,
   validateSaveId,
 } from './path-guards.js';
 import {
@@ -32,31 +33,15 @@ function ensureSavesDir(): void {
   }
 }
 
-function resolveStoragePath(relativePath: string): string | null {
-  const parts = relativePath
-    .split('/')
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.some((part) => part === '..' || part.includes('\\') || part.includes('/'))) {
-    return null;
-  }
-
-  const normalizedParts = parts[0] === 'saves' ? parts.slice(1) : parts;
-  const target = path.resolve(SAVES_DIR, ...normalizedParts);
-  if (target !== SAVES_DIR && !target.startsWith(`${SAVES_DIR}${path.sep}`)) return null;
-  return target;
-}
-
 function registerStorageIpc(): void {
   ipcMain.handle('storage:readText', async (_event, relativePath: string) => {
-    const target = resolveStoragePath(relativePath);
+    const target = resolveStoragePath(SAVES_DIR, relativePath);
     if (!target || !fs.existsSync(target) || !fs.statSync(target).isFile()) return null;
     return fs.readFileSync(target, 'utf-8');
   });
 
   ipcMain.handle('storage:writeText', async (_event, relativePath: string, content: string, options?: { backup?: boolean }) => {
-    const target = resolveStoragePath(relativePath);
+    const target = resolveStoragePath(SAVES_DIR, relativePath, { allowRoot: false });
     if (!target) return false;
     const dir = path.dirname(target);
     fs.mkdirSync(dir, { recursive: true });
@@ -70,7 +55,7 @@ function registerStorageIpc(): void {
   });
 
   ipcMain.handle('storage:list', async (_event, relativePath: string) => {
-    const target = resolveStoragePath(relativePath);
+    const target = resolveStoragePath(SAVES_DIR, relativePath);
     if (!target || !fs.existsSync(target) || !fs.statSync(target).isDirectory()) return [];
     return fs.readdirSync(target, { withFileTypes: true })
       .map((entry) => ({
@@ -81,19 +66,19 @@ function registerStorageIpc(): void {
   });
 
   ipcMain.handle('storage:exists', async (_event, relativePath: string) => {
-    const target = resolveStoragePath(relativePath);
+    const target = resolveStoragePath(SAVES_DIR, relativePath);
     return !!target && fs.existsSync(target);
   });
 
   ipcMain.handle('storage:delete', async (_event, relativePath: string) => {
-    const target = resolveStoragePath(relativePath);
+    const target = resolveStoragePath(SAVES_DIR, relativePath, { allowRoot: false });
     if (!target || !fs.existsSync(target)) return true;
     fs.rmSync(target, { recursive: true, force: true });
     return true;
   });
 
   ipcMain.handle('storage:searchText', async (_event, relativePath: string, query: string) => {
-    const target = resolveStoragePath(relativePath);
+    const target = resolveStoragePath(SAVES_DIR, relativePath);
     if (!target || !fs.existsSync(target) || !query.trim()) return [];
     const lowerQuery = query.toLowerCase();
     const hits: { path: string; snippet: string }[] = [];
@@ -467,6 +452,19 @@ function registerMemoryIpc(): void {
 
 let mainWindow: BrowserWindow | null = null;
 
+function isTrustedAppNavigation(currentUrl: string, navigationUrl: string): boolean {
+  if (!currentUrl) return true;
+  try {
+    const current = new URL(currentUrl);
+    const next = new URL(navigationUrl);
+    return current.protocol === next.protocol
+      && current.host === next.host
+      && current.pathname === next.pathname;
+  } catch {
+    return false;
+  }
+}
+
 function createWindow(): void {
   const iconPath = app.isPackaged
     ? path.join(process.resourcesPath, 'icon.png')
@@ -480,23 +478,18 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
     title: 'Jarvis Life',
     resizable: true,
   });
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL || (!app.isPackaged ? 'http://localhost:5173' : '');
-  const allowedDevOrigin = devServerUrl ? new URL(devServerUrl).origin : '';
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  mainWindow.webContents.on('will-navigate', (event, targetURL) => {
-    try {
-      const target = new URL(targetURL);
-      const allowed = allowedDevOrigin
-        ? target.origin === allowedDevOrigin
-        : target.protocol === 'file:';
-      if (!allowed) event.preventDefault();
-    } catch {
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    const currentUrl = mainWindow?.webContents.getURL() || '';
+    if (!isTrustedAppNavigation(currentUrl, navigationUrl)) {
       event.preventDefault();
     }
   });
@@ -516,7 +509,11 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   initializeAISecurity(app.getPath('userData'));
-  await startAIProxy();
+  try {
+    await startAIProxy();
+  } catch (error) {
+    console.error('[ai-proxy] Failed to start:', error);
+  }
   registerBuiltinIpc();
   registerSaveIpc();
   createWindow();

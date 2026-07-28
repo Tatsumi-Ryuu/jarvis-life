@@ -148,12 +148,18 @@ function endgame(element: React.ReactNode): React.ReactElement {
   return guarded(<EndgameCompanyBackground>{element}</EndgameCompanyBackground>);
 }
 
+const developmentRoutes = import.meta.env.DEV
+  ? [
+      { path: '/dev/design-system', element: <DesignSystemPreviewPage /> },
+      { path: '/dev/design-system-confirmed', element: <ConfirmedStyleDesignSpecPage /> },
+      { path: '/dev/gomoku', element: <GomokuAiDemoPage /> },
+      { path: '/dev/cat-trap', element: <CatTrapDemoPage /> },
+    ]
+  : [];
+
 export const router = createHashRouter([
   { path: '/', element: <Navigate to="/title" /> },
-  { path: '/dev/design-system', element: <DesignSystemPreviewPage /> },
-  { path: '/dev/design-system-confirmed', element: <ConfirmedStyleDesignSpecPage /> },
-  { path: '/dev/gomoku', element: <GomokuAiDemoPage /> },
-  { path: '/dev/cat-trap', element: <CatTrapDemoPage /> },
+  ...developmentRoutes,
 
   // === Stage 1: Opening ===
   { path: '/title', element: <TitlePage /> },
@@ -202,4 +208,5 @@ export const router = createHashRouter([
   },
   { path: '/endgame/letter', element: endgame(<AILetterPage />) },
   { path: '/endgame/player-ending', element: endgame(<PlayerEndingPage />) },
+  { path: '*', element: <Navigate to="/title" replace /> },
 ]);

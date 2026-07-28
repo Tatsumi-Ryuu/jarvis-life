@@ -1,6 +1,7 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { existsSync } from 'fs';
-import { resolve, join } from 'path';
+import { mkdir } from 'fs/promises';
+import { dirname, resolve, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -442,23 +443,21 @@ const assets: AssetRow[] = [
 ];
 
 // Create workbook and worksheet
-const wb = XLSX.utils.book_new();
-const ws = XLSX.utils.json_to_sheet(assets);
-
-// Set column widths
-ws['!cols'] = [
-  { wch: 22 },  // 素材ID
-  { wch: 10 },  // 素材分类
-  { wch: 22 },  // 素材含义
-  { wch: 42 },  // 存放路径
-  { wch: 38 },  // 所在页面
-  { wch: 14 },  // 使用尺寸
-  { wch: 12 },  // 文件是否存在
-  { wch: 8 },   // 状态
-  { wch: 45 },  // 策划描述
-];
-
-XLSX.utils.book_append_sheet(wb, ws, '美术素材清单');
+const workbook = new ExcelJS.Workbook();
+const assetSheet = workbook.addWorksheet('美术素材清单');
+const assetHeaders = Object.keys(assets[0]) as Array<keyof AssetRow>;
+const assetWidths = [22, 10, 22, 42, 38, 14, 12, 8, 45];
+assetSheet.columns = assetHeaders.map((header, index) => ({
+  header,
+  key: header,
+  width: assetWidths[index],
+}));
+assetSheet.addRows(assets);
+assetSheet.getRow(1).font = { bold: true };
+assetSheet.autoFilter = {
+  from: { row: 1, column: 1 },
+  to: { row: 1, column: assetHeaders.length },
+};
 
 // Also create a summary sheet
 const summaryData = [
@@ -469,17 +468,19 @@ const summaryData = [
   { '分类': '合计', '总数': 37, '已就绪': 10, '缺失': 27 },
 ];
 
-const ws2 = XLSX.utils.json_to_sheet(summaryData);
-ws2['!cols'] = [
-  { wch: 10 },
-  { wch: 8 },
-  { wch: 8 },
-  { wch: 8 },
-];
-XLSX.utils.book_append_sheet(wb, ws2, '统计概览');
+const summarySheet = workbook.addWorksheet('统计概览');
+const summaryHeaders = Object.keys(summaryData[0]);
+summarySheet.columns = summaryHeaders.map((header, index) => ({
+  header,
+  key: header,
+  width: [10, 8, 8, 8][index],
+}));
+summarySheet.addRows(summaryData);
+summarySheet.getRow(1).font = { bold: true };
 
 const outputPath = resolve(__dirname, '../docs/美术素材配置表.xlsx');
-XLSX.writeFile(wb, outputPath);
+await mkdir(dirname(outputPath), { recursive: true });
+await workbook.xlsx.writeFile(outputPath);
 console.log(`Excel generated: ${outputPath}`);
 console.log(`Total assets: ${assets.length}`);
 console.log(`Missing: ${assets.filter(a => a['状态'] === '缺失').length}`);

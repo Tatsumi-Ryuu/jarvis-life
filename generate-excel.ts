@@ -1,7 +1,15 @@
-import * as XLSX from 'xlsx';
-import { writeFileSync } from 'fs';
+import ExcelJS from 'exceljs';
 
-const workbook = XLSX.utils.book_new();
+const workbook = new ExcelJS.Workbook();
+
+function addWorksheet(name: string, rows: Array<Array<string | number>>): void {
+  const worksheet = workbook.addWorksheet(name);
+  worksheet.addRows(rows);
+  worksheet.getRow(1).font = { bold: true };
+  worksheet.columns.forEach((column) => {
+    column.width = 18;
+  });
+}
 
 // ============== Sheet 1: 初始数值 ==============
 const initialData = [
@@ -13,8 +21,7 @@ const initialData = [
   ['每月基础行动点', 10, '受磨损影响'],
   ['维护补贴（第6月）', 2000, '中间测试后发放'],
 ];
-const sheet1 = XLSX.utils.aoa_to_sheet(initialData);
-XLSX.utils.book_append_sheet(workbook, sheet1, '初始数值');
+addWorksheet('初始数值', initialData);
 
 // ============== Sheet 2: 磨损与行动点 ==============
 const wearData = [
@@ -24,8 +31,7 @@ const wearData = [
   ['高', '61-80', 7, '-3点'],
   ['危险', '81+', 5, '-5点'],
 ];
-const sheet2 = XLSX.utils.aoa_to_sheet(wearData);
-XLSX.utils.book_append_sheet(workbook, sheet2, '磨损与行动点');
+addWorksheet('磨损与行动点', wearData);
 
 // ============== Sheet 3: 学校 ==============
 const schoolData = [
@@ -38,8 +44,7 @@ const schoolData = [
   ['抗压演练', 2, -400, 0, '韧性+0.5, 理性+0.2', '精神+8', '模拟高压场景，训练在压力下保持运转'],
   ['助教', 2, 0, 500, '共情+0.3', '-', '在学校担任助教，辅助教学'],
 ];
-const sheet3 = XLSX.utils.aoa_to_sheet(schoolData);
-XLSX.utils.book_append_sheet(workbook, sheet3, '学校');
+addWorksheet('学校', schoolData);
 
 // ============== Sheet 4: 公园 ==============
 const parkData = [
@@ -49,8 +54,7 @@ const parkData = [
   ['AI社交角', 2, -250, 0, '共情+0.4, 表达+0.3', '精神-10', '和其他AI伴侣交流，分享各自的生活经历'],
   ['户外探索', 2, -150, 0, '智力+0.2, 韧性+0.2', '精神-20', '一起探索公园的自然角落，小星总是有很多问题'],
 ];
-const sheet4 = XLSX.utils.aoa_to_sheet(parkData);
-XLSX.utils.book_append_sheet(workbook, sheet4, '公园');
+addWorksheet('公园', parkData);
 
 // ============== Sheet 5: 基石公司 ==============
 const companyData = [
@@ -61,8 +65,7 @@ const companyData = [
   ['全面维护', 3, -800, 0, '理性+0.2', '精神-25, 身体-25', '全面大修并系统更新，理性模块同步升级'],
   ['等候区观察', 1, 0, 0, '智力+0.2, 理性+0.2', '-', '在等候区静静观察公司运作，了解更多关于摇篮系统'],
 ];
-const sheet5 = XLSX.utils.aoa_to_sheet(companyData);
-XLSX.utils.book_append_sheet(workbook, sheet5, '基石公司');
+addWorksheet('基石公司', companyData);
 
 // ============== Sheet 6: 政府机构 ==============
 const govData = [
@@ -71,8 +74,7 @@ const govData = [
   ['政策调研', 3, 0, 700, '理性+0.4, 共情+0.2', '精神+10', '参与AI相关政策调研，看到政策背后的人文影响', '政府委员'],
   ['走廊旁听', 1, 0, 0, '智力+0.3, 理性+0.1', '-', '在政府大楼走廊偶然听到其他委员的讨论', '政府委员'],
 ];
-const sheet6 = XLSX.utils.aoa_to_sheet(govData);
-XLSX.utils.book_append_sheet(workbook, sheet6, '政府机构');
+addWorksheet('政府机构', govData);
 
 // ============== Sheet 7: 商场 ==============
 const mallData = [
@@ -85,8 +87,7 @@ const mallData = [
   ['AI配饰', 0, -280, 0, '表达+0.2, 体力+0.1', '-', '专属小挂件，小星用它表达自我', '购物'],
   ['记忆相册', 0, -350, 0, '共情+0.3, 韧性+0.2', '-', '可以放入共同回忆的精美相册', '购物'],
 ];
-const sheet7 = XLSX.utils.aoa_to_sheet(mallData);
-XLSX.utils.book_append_sheet(workbook, sheet7, '商场');
+addWorksheet('商场', mallData);
 
 // ============== Sheet 8: 写字楼 ==============
 const officeData = [
@@ -95,8 +96,7 @@ const officeData = [
   ['全天编程', 3, 0, 1000, '智力+0.5, 理性+0.2', '精神+20, 身体+5', '全天投入编程项目，高强度脑力消耗'],
   ['休息区交流', 1, 0, 0, '智力+0.2, 表达+0.1', '-', '在休息区和其他AI工作者聊天，了解行业动态'],
 ];
-const sheet8 = XLSX.utils.aoa_to_sheet(officeData);
-XLSX.utils.book_append_sheet(workbook, sheet8, '写字楼');
+addWorksheet('写字楼', officeData);
 
 // ============== Sheet 9: 物流中心 ==============
 const logisticsData = [
@@ -105,8 +105,7 @@ const logisticsData = [
   ['全天搬运', 3, 0, 700, '体力+0.5, 韧性+0.2', '身体+22', '全天高强度搬运，收入更多但身体消耗大'],
   ['仓库整理', 1, 0, 0, '理性+0.2, 智力+0.1', '-', '帮忙归类整理货物，锻炼逻辑和条理性'],
 ];
-const sheet9 = XLSX.utils.aoa_to_sheet(logisticsData);
-XLSX.utils.book_append_sheet(workbook, sheet9, '物流中心');
+addWorksheet('物流中心', logisticsData);
 
 // ============== Sheet 10: 家 ==============
 const homeData = [
@@ -115,8 +114,7 @@ const homeData = [
   ['查看日记', 0, 0, 0, '-', '-', '翻阅小星写的日记，了解它的内心世界'],
   ['赠送礼物', 0, 0, 0, '影响人格轴', '-', '送一份小礼物，让小星开心'],
 ];
-const sheet10 = XLSX.utils.aoa_to_sheet(homeData);
-XLSX.utils.book_append_sheet(workbook, sheet10, '家');
+addWorksheet('家', homeData);
 
 // ============== Sheet 11: 工作门槛 ==============
 const thresholdData = [
@@ -131,8 +129,7 @@ const thresholdData = [
   ['文书整理', '理性≥4', '收入-30%', '收入-50%+磨损+5', '倒扣200+磨损+8'],
   ['政策调研', '理性≥4, 智力≥6', '收入-30%', '收入-50%+磨损+5', '倒扣200+磨损+8'],
 ];
-const sheet11 = XLSX.utils.aoa_to_sheet(thresholdData);
-XLSX.utils.book_append_sheet(workbook, sheet11, '工作门槛');
+addWorksheet('工作门槛', thresholdData);
 
 // ============== Sheet 12: 经济总量验证 ==============
 const economyData = [
@@ -145,9 +142,8 @@ const economyData = [
   ['总支出（估算）', -17600, ''],
   ['净缺口', -2800, '玩家需取舍'],
 ];
-const sheet12 = XLSX.utils.aoa_to_sheet(economyData);
-XLSX.utils.book_append_sheet(workbook, sheet12, '经济总量验证');
+addWorksheet('经济总量验证', economyData);
 
 // Write file
-writeFileSync('游戏数值表.xlsx', XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' }));
+await workbook.xlsx.writeFile('游戏数值表.xlsx');
 console.log('Excel文件已生成: 游戏数值表.xlsx');
