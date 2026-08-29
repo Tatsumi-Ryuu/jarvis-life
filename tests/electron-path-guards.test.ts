@@ -8,6 +8,7 @@ import {
   resolveAgentsRoot,
   resolveMemoriesDir,
   resolveMemoryFilePath,
+  resolveStoragePath,
 } from '../src/main/path-guards';
 
 describe('Electron path guards', () => {
@@ -45,5 +46,22 @@ describe('Electron path guards', () => {
     expect(isWithinDir('/tmp/saves', '/tmp/saves/file.md')).toBe(true);
     expect(isWithinDir('/tmp/saves', '/tmp/saves')).toBe(true);
     expect(isWithinDir('/tmp/saves', '/tmp/saves2/file.md')).toBe(false);
+  });
+
+  it('allows storage reads at the root but rejects destructive root targets', () => {
+    expect(resolveStoragePath(savesDir, '')).toBe(savesDir);
+    expect(resolveStoragePath(savesDir, 'saves')).toBe(savesDir);
+    expect(resolveStoragePath(savesDir, '', { allowRoot: false })).toBeNull();
+    expect(resolveStoragePath(savesDir, 'saves', { allowRoot: false })).toBeNull();
+    expect(resolveStoragePath(savesDir, 'saves/save-alpha', { allowRoot: false })).toBe(
+      path.join(savesDir, 'save-alpha'),
+    );
+  });
+
+  it('rejects malformed storage path segments', () => {
+    expect(resolveStoragePath(savesDir, '../outside')).toBeNull();
+    expect(resolveStoragePath(savesDir, 'saves/../outside')).toBeNull();
+    expect(resolveStoragePath(savesDir, 'saves\\outside')).toBeNull();
+    expect(resolveStoragePath(savesDir, 'C:/outside')).toBeNull();
   });
 });

@@ -20,6 +20,37 @@ export function isWithinDir(baseDir: string, candidatePath: string): boolean {
   return candidate === base || candidate.startsWith(`${base}${path.sep}`);
 }
 
+export function resolveStoragePath(
+  savesDir: string,
+  relativePath: string,
+  options: { allowRoot?: boolean } = {},
+): string | null {
+  if (typeof relativePath !== 'string') return null;
+
+  const parts = relativePath
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.some((part) => (
+    part === '.'
+    || part === '..'
+    || part.includes('\\')
+    || part.includes('/')
+    || part.includes(':')
+    || part.includes('\0')
+  ))) {
+    return null;
+  }
+
+  const normalizedParts = parts[0] === 'saves' ? parts.slice(1) : parts;
+  const root = path.resolve(savesDir);
+  const target = path.resolve(root, ...normalizedParts);
+  if (!isWithinDir(root, target)) return null;
+  if (target === root && options.allowRoot === false) return null;
+  return target;
+}
+
 export function resolveAgentsRoot(savesDir: string, saveId: string): string | null {
   if (!validateSaveId(saveId)) return null;
   const root = path.resolve(savesDir);

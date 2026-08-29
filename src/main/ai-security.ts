@@ -1,5 +1,5 @@
 import { safeStorage } from 'electron';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as path from 'node:path';
@@ -55,6 +55,9 @@ const ANTHROPIC_STYLE_PROVIDERS = new Set([
 const CONFIG_FILENAME = 'ai-config.secure.json';
 const MAX_CONFIG_LENGTH = 256 * 1024;
 const MAX_FIELD_LENGTH = 4096;
+const MAX_PROXY_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
+const ALLOWED_PROXY_METHODS = new Set(['GET', 'HEAD', 'POST']);
+const GOOGLE_STYLE_PROVIDERS = new Set(['google']);
 
 let userDataDirectory = '';
 let cachedConfig: SecureAIConfig | null | undefined;
@@ -201,8 +204,10 @@ export function clearEncryptedAIConfig(): void {
 }
 
 function isAllowedUpstream(url: URL): boolean {
+  if (url.username || url.password) return false;
   if (url.protocol === 'https:') return true;
-  return url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1');
+  return url.protocol === 'http:'
+    && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 }
 
 function getProxyCredential(route: 'builtin' | 'provider', providerId: string): {
@@ -226,23 +231,89 @@ function getProxyCredential(route: 'builtin' | 'provider', providerId: string): 
   return isAllowedUpstream(upstream) ? { apiKey: credential.apiKey, providerId, upstream } : null;
 }
 
-function hasValidProxyToken(request: http.IncomingMessage, requestURL: URL, token: string): boolean {
-  const authorization = request.headers.authorization;
-  if (authorization === `Bearer ${token}`) return true;
-  if (request.headers['x-api-key'] === token) return true;
-  if (request.headers['x-goog-api-key'] === token) return true;
-  return requestURL.searchParams.get('key') === token;
+function safeTokenEquals(actual: string | undefined, expected: string): boolean {
+  if (!actual) return false;
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length
+    && timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
-function applyCors(request: http.IncomingMessage, response: http.ServerResponse): void {
+function firstHeaderValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function hasValidProxyToken(request: http.IncomingMessage, requestURL: URL, token: string): boolean {
+  const authorization = request.headers.authorization;
+  const bearerToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length)
+    : undefined;
+  return safeTokenEquals(bearerToken, token)
+    || safeTokenEquals(firstHeaderValue(request.headers['x-api-key']), token)
+    || safeTokenEquals(firstHeaderValue(request.headers['x-goog-api-key']), token)
+    || safeTokenEquals(requestURL.searchParams.get('key') ?? undefined, token);
+}
+
+function isAllowedRendererOrigin(origin: string | undefined): boolean {
+  if (!origin || origin === 'null') return true;
+  const configuredDevURL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
+  try {
+    const configuredOrigin = new URL(configuredDevURL).origin;
+    const configuredPort = new URL(configuredOrigin).port || '5173';
+    return origin === configuredOrigin
+      || origin === `http://localhost:${configuredPort}`
+      || origin === `http://127.0.0.1:${configuredPort}`;
+  } catch {
+    return false;
+  }
+}
+
+function applyCors(request: http.IncomingMessage, response: http.ServerResponse): boolean {
   const origin = request.headers.origin;
+  if (!isAllowedRendererOrigin(origin)) return false;
   if (origin) response.setHeader('Access-Control-Allow-Origin', origin);
   response.setHeader('Vary', 'Origin');
   response.setHeader(
     'Access-Control-Allow-Headers',
-    'authorization, content-type, x-api-key, x-goog-api-key, anthropic-version, anthropic-beta',
+    firstHeaderValue(request.headers['access-control-request-headers'])
+      || 'authorization, content-type, x-api-key, x-goog-api-key, anthropic-version, anthropic-beta',
   );
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Private-Network', 'true');
+  return true;
+}
+
+export function resolveAIProxyTarget(
+  upstream: URL,
+  requestPath: string,
+  searchParams: URLSearchParams,
+): URL | null {
+  if (!requestPath.startsWith('/') || requestPath.startsWith('//')) return null;
+  const target = new URL(requestPath, upstream.origin);
+  const upstreamPath = upstream.pathname.replace(/\/+$/, '') || '/';
+  const allowedPath = upstreamPath === '/'
+    || target.pathname === upstreamPath
+    || target.pathname.startsWith(`${upstreamPath}/`);
+  if (target.origin !== upstream.origin || !allowedPath) return null;
+  for (const [key, value] of searchParams) target.searchParams.append(key, value);
+  return target;
+}
+
+async function readProxyRequestBody(request: http.IncomingMessage): Promise<Buffer> {
+  const contentLength = Number(firstHeaderValue(request.headers['content-length']));
+  if (Number.isFinite(contentLength) && contentLength > MAX_PROXY_REQUEST_BODY_BYTES) {
+    throw new Error('REQUEST_TOO_LARGE');
+  }
+
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.from(chunk);
+    totalBytes += buffer.length;
+    if (totalBytes > MAX_PROXY_REQUEST_BODY_BYTES) throw new Error('REQUEST_TOO_LARGE');
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
 }
 
 async function forwardProxyRequest(
@@ -250,10 +321,22 @@ async function forwardProxyRequest(
   response: http.ServerResponse,
   token: string,
 ): Promise<void> {
-  applyCors(request, response);
+  if (!applyCors(request, response)) {
+    response.statusCode = 403;
+    response.end(JSON.stringify({ error: 'Forbidden AI proxy origin' }));
+    return;
+  }
   if (request.method === 'OPTIONS') {
     response.statusCode = 204;
     response.end();
+    return;
+  }
+
+  const method = request.method || 'GET';
+  if (!ALLOWED_PROXY_METHODS.has(method)) {
+    response.statusCode = 405;
+    response.setHeader('Allow', 'GET, HEAD, POST, OPTIONS');
+    response.end(JSON.stringify({ error: 'Unsupported AI proxy method' }));
     return;
   }
 
@@ -281,34 +364,74 @@ async function forwardProxyRequest(
     return;
   }
 
-  const target = new URL(`/${segments.join('/')}`, credential.upstream.origin);
-  requestURL.searchParams.forEach((value, key) => target.searchParams.append(key, value));
-  if (target.searchParams.get('key') === token) target.searchParams.set('key', credential.apiKey);
+  const target = resolveAIProxyTarget(
+    credential.upstream,
+    `/${segments.join('/')}`,
+    requestURL.searchParams,
+  );
+  if (!target) {
+    response.statusCode = 400;
+    response.end(JSON.stringify({ error: 'Invalid AI proxy path' }));
+    return;
+  }
+  if (GOOGLE_STYLE_PROVIDERS.has(credential.providerId)) {
+    target.searchParams.set('key', credential.apiKey);
+  } else if (safeTokenEquals(target.searchParams.get('key') ?? undefined, token)) {
+    target.searchParams.delete('key');
+  }
 
-  const bodyChunks: Buffer[] = [];
-  for await (const chunk of request) bodyChunks.push(Buffer.from(chunk));
-  const body = Buffer.concat(bodyChunks);
+  let body: Buffer;
+  try {
+    body = ['GET', 'HEAD'].includes(method)
+      ? Buffer.alloc(0)
+      : await readProxyRequestBody(request);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'REQUEST_TOO_LARGE') {
+      response.statusCode = 413;
+      response.end(JSON.stringify({ error: 'AI proxy request body is too large' }));
+      return;
+    }
+    throw error;
+  }
   const headers = new Headers();
   for (const [name, value] of Object.entries(request.headers)) {
     const lower = name.toLowerCase();
-    if (['host', 'content-length', 'authorization', 'x-api-key', 'x-goog-api-key'].includes(lower)) continue;
+    if ([
+      'accept-encoding',
+      'authorization',
+      'connection',
+      'content-length',
+      'cookie',
+      'host',
+      'origin',
+      'proxy-authorization',
+      'transfer-encoding',
+      'x-api-key',
+      'x-goog-api-key',
+    ].includes(lower)) continue;
     if (value) headers.set(name, Array.isArray(value) ? value.join(', ') : value);
   }
   if (ANTHROPIC_STYLE_PROVIDERS.has(credential.providerId)) {
     headers.set('x-api-key', credential.apiKey);
-  } else if (!target.searchParams.has('key')) {
+  } else if (GOOGLE_STYLE_PROVIDERS.has(credential.providerId)) {
+    headers.set('x-goog-api-key', credential.apiKey);
+  } else {
     headers.set('authorization', `Bearer ${credential.apiKey}`);
   }
 
   const upstreamResponse = await fetch(target, {
-    method: request.method || 'GET',
+    method,
     headers,
-    body: ['GET', 'HEAD'].includes(request.method || '') ? undefined : body,
-    redirect: 'manual',
+    body: ['GET', 'HEAD'].includes(method) ? undefined : new Uint8Array(body),
+    redirect: 'error',
   });
   response.statusCode = upstreamResponse.status;
   upstreamResponse.headers.forEach((value, name) => {
-    if (!['content-encoding', 'transfer-encoding', 'content-length'].includes(name.toLowerCase())) {
+    const lower = name.toLowerCase();
+    if (
+      !['content-encoding', 'transfer-encoding', 'content-length'].includes(lower)
+      && !lower.startsWith('access-control-')
+    ) {
       response.setHeader(name, value);
     }
   });
