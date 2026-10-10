@@ -21,19 +21,19 @@
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.74.0",
     "@earendil-works/pi-ai": "^0.74.0",
-    "@types/howler": "^2.2.12",
+    "@types/howler": "^2.2.13",
     "framer-motion": "^12.38.0",
     "howler": "^2.2.4",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "react-router-dom": "^7.18.1",
-    "zustand": "^5.0.13"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.3",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
     "electron": "^42.1.0",
